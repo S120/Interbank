@@ -244,7 +244,7 @@
 			</list>
 		</property>
 		<property name="simulationController" ref="simulationController" />
-		<property name="maximumRounds" value="400" />
+		<property name="maximumRounds" value="10" />
 		<property name="population" ref="macroPopulation" />
 		<property name="agentInitialiser" ref="sfcAgentsInitialiser" />
 		<property name="handler" ref="populationHandler" />
@@ -2954,8 +2954,8 @@
 		class="jmab.strategies.ProfitsWealthTaxStrategy">
 		<property name="profitTaxRate" ref="profitTaxVal" />
 		<property name="wealthTaxRate" value="0"></property>
-		<property name="maxProfitTaxRate" value="0.18" />
-		<property name="minProfitTaxRate" value="0.18" />
+		<property name="maxProfitTaxRate" value="0.50" />
+		<property name="minProfitTaxRate" value="0.0" />
 		<property name="depositId">
 			<util:constant static-field="interbank.StaticValues.SM_DEP" />
 		</property>

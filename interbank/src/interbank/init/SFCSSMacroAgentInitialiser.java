@@ -50,6 +50,7 @@ import net.sourceforge.jabm.Population;
 import net.sourceforge.jabm.prng.MersenneTwister;
 import net.sourceforge.jabm.report.CSVWriter;
 import cern.jet.random.Uniform;
+import cern.jet.random.engine.RandomEngine;
 
 /**
  * @author Alessandro Caiani and Antoine Godin
@@ -110,18 +111,12 @@ public class SFCSSMacroAgentInitialiser extends AbstractMacroAgentInitialiser im
 	private double iAdv;
 	private double cbBonds;
 	//RandomEngine
-	private MersenneTwister prng;
+	private RandomEngine prng;
 	private double uniformDistr;
 	private double gr;
 	private double nomGDP;
 	private double infl;
-	private double CAR;
-	private double liquidityRatio;
-	private Uniform distr;
-	private boolean updateSeed;
 	
-	
-
 	private CSVWriter seedsWriter;
 
 	/* (non-Javadoc)
@@ -145,7 +140,10 @@ public class SFCSSMacroAgentInitialiser extends AbstractMacroAgentInitialiser im
 		//as the id of agents increases from mc repetition to mc repetition. But it is reset
 		// when it starts a new experiment of a sensitivity so that every mc repetition of a sens
 		//experiment has the same seed of the correspondent mc repetition in the other experiments.
-		int seed= prng.getSeed();
+		Households h = (Households) households.getAgentList().get(0);
+		int seed= (int) h.getAgentId();
+		MersenneTwister prng = (MersenneTwister) this.prng;
+		prng.setSeed(1);
 		System.out.println("Seed is: " + seed);
 		seedsWriter.newData(seed);
 		seedsWriter.endRecord();
@@ -167,6 +165,8 @@ public class SFCSSMacroAgentInitialiser extends AbstractMacroAgentInitialiser im
 		int kFirmPerBank = kSize/bSize;
 		int cFirmPerkFirm = cSize/kSize;
 		int hhPercFirm = hhSize/cSize;
+
+		Uniform distr = new Uniform(-uniformDistr,uniformDistr,prng);
 
 		//Households
 		double hhDep = this.hhsDep/hhSize;
@@ -290,8 +290,8 @@ public class SFCSSMacroAgentInitialiser extends AbstractMacroAgentInitialiser im
 
 			//Expectations and Lagged Values
 			k.addValue(StaticValues.LAG_PROFITPRETAX, kProfit*(1+distr.nextDouble()));
-			k.addValue(StaticValues.LAG_PROFITAFTERTAX, kProfit*(1+distr.nextDouble()));
 			k.addValue(StaticValues.LAG_TAXES, 0);
+			k.addValue(StaticValues.LAG_PROFITAFTERTAX, kProfit*(1+distr.nextDouble()));
 			//double lagKInv=kInv*(1+distr.nextDouble());
 			double lagKInv=kInv;
 			k.addValue(StaticValues.LAG_INVENTORIES, lagKInv);
@@ -551,6 +551,13 @@ public class SFCSSMacroAgentInitialiser extends AbstractMacroAgentInitialiser im
 		govt.addItemStockMatrix(govtRes, true, StaticValues.SM_RESERVES);
 		cb.addItemStockMatrix(govtRes, false, StaticValues.SM_RESERVES);
 
+		double initialPublicDebt=0;
+	    for (Item bond:govt.getItemsStockMatrix(false, StaticValues.SM_BONDS)){
+	    	initialPublicDebt+=bond.getValue();
+	    }
+	    //govt.getPassedValues().get(StaticValues.LAG_PUBLICDEBT).addObservation(initialPublicDebt, 0);
+	    govt.addValue(StaticValues.LAG_PUBLICDEBT, initialPublicDebt);
+		
 		//Central Bank
 		int nbBondsPerPeriod1 = (int) this.cbBonds/(bondMat*bondPrice);
 		for(int j = 1 ; j<=bondMat; j++){
@@ -559,22 +566,11 @@ public class SFCSSMacroAgentInitialiser extends AbstractMacroAgentInitialiser im
 			cb.addItemStockMatrix(bond, true, StaticValues.SM_BONDS);
 			govt.addItemStockMatrix(bond, false, StaticValues.SM_BONDS);
 		}
-		
-		double initialPublicDebt=0;
-	    for (Item bond:govt.getItemsStockMatrix(false, StaticValues.SM_BONDS)){
-	    	initialPublicDebt+=bond.getValue();
-	    }
-	    //govt.getPassedValues().get(StaticValues.LAG_PUBLICDEBT).addObservation(initialPublicDebt, 0);
-	    govt.addValue(StaticValues.LAG_PUBLICDEBT, initialPublicDebt);
-		
 		//TODO: Add Aggregate values, we could use the macrosimulation
 		govt.setAggregateValue(StaticValues.LAG_AGGUNEMPLOYMENT, 0.08*(1+distr.nextDouble()));//TODO
 		govt.setAggregateValue(StaticValues.LAG_INFLATION, infl*(1+distr.nextDouble()));//TODO
 		govt.setAggregateValue(StaticValues.LAG_AGGCREDIT, csLoans+ksLoans);//TODO
 		govt.setAggregateValue(StaticValues.LAG_NOMINALGDP, nomGDP);//TODO
-		
-		cb.setLiquidityRatio(this.liquidityRatio);
-		cb.setCAR(this.CAR);
 	}
 
 
@@ -1044,21 +1040,15 @@ public class SFCSSMacroAgentInitialiser extends AbstractMacroAgentInitialiser im
 	/**
 	 * @return the prng
 	 */
-	public MersenneTwister getPrng() {
+	public RandomEngine getPrng() {
 		return prng;
 	}
 
 	/**
 	 * @param prng the prng to set
 	 */
-	public void setPrng(MersenneTwister prng) {
+	public void setPrng(RandomEngine prng) {
 		this.prng = prng;
-		int seed = prng.getSeed();
-		if(updateSeed){			
-			seed+=1;
-		}
-		this.prng.setSeed(seed);
-		distr = new Uniform(-uniformDistr,uniformDistr,prng);
 	}
 
 	/**
@@ -1073,7 +1063,6 @@ public class SFCSSMacroAgentInitialiser extends AbstractMacroAgentInitialiser im
 	 */
 	public void setUniformDistr(double uniformDistr) {
 		this.uniformDistr = uniformDistr;
-		distr = new Uniform(-uniformDistr,uniformDistr,prng);
 	}
 	/**
 	 * @return the kOCF
@@ -1173,57 +1162,4 @@ public class SFCSSMacroAgentInitialiser extends AbstractMacroAgentInitialiser im
 		this.nomGDP = nomGDP;
 	}
 
-	/**
-	 * @return the updateSeed
-	 */
-	public boolean isUpdateSeed() {
-		return updateSeed;
-	}
-
-
-
-	/**
-	 * @param updateSeed the updateSeed to set
-	 */
-	public void setUpdateSeed(boolean updateSeed) {
-		this.updateSeed = updateSeed;
-	}
-
-
-
-	/**
-	 * @return the cAR
-	 */
-	public double getCAR() {
-		return CAR;
-	}
-
-
-
-	/**
-	 * @param cAR the cAR to set
-	 */
-	public void setCAR(double cAR) {
-		CAR = cAR;
-	}
-
-
-
-	/**
-	 * @return the liquidityRatio
-	 */
-	public double getLiquidityRatio() {
-		return liquidityRatio;
-	}
-
-
-
-	/**
-	 * @param liquidityRatio the liquidityRatio to set
-	 */
-	public void setLiquidityRatio(double liquidityRatio) {
-		this.liquidityRatio = liquidityRatio;
-	}
-	
-	
 }
